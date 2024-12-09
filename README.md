@@ -1,3 +1,5 @@
+IN PROGESS ⚠️
+
 **Product Review Analyzer** 📊🛍️
 
 Welcome to the **Product Review Analyzer** repository! 🚀 This project is designed to streamline product analysis by extracting, classifying, summarizing, and rating reviews from popular e-commerce platforms like Amazon or Flipkart. 🛒✨ 
