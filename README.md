@@ -18,9 +18,13 @@ Welcome to the **Product Review Analyzer** repository! 🚀 This project is desi
    Generate a concise summary of all reviews for quick insights.  
 
 4. **Overall Rating**
-   Calculate the overall rating using sentiment polarity to provide a numerical score.  
+   Calculate the overall rating using sentiment polarity to provide a numerical score.
 
-5. **Product Analysis** 
+5. **Top Reviews Showcase**
+   Display the first 5 reviews from each category:
+   -Top 5 Positive 😊, Top 5 Neutral 😐, Top 5 Negative 😔
+
+6. **Product Analysis** 
    Based on review sentiments, determine whether the product is:  
    - **GOOD** ✅ , **OKAY** ⚠️ , **BAD** ❌  
 
