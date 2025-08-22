@@ -25,14 +25,18 @@ import google.generativeai as genai
 # ✅ Initialize WebDriver
 def initialize_driver():
     options = Options()
-    options.add_argument("--headless")  # Run Chrome without GUI
-    options.add_argument("--no-sandbox")  # Required for cloud
+    options.add_argument("--headless")  # Must for Streamlit Cloud
+    options.add_argument("--disable-gpu")  # Windows GPU workaround
+    options.add_argument("--no-sandbox")  # Bypass sandbox
     options.add_argument("--disable-dev-shm-usage")  # Avoid memory issues
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")  # Optional but recommended
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--window-size=1920,1080")  # Simulate full screen
+
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     return driver
+
 
 
 # ✅ Scrape product details
