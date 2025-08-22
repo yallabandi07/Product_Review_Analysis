@@ -2,13 +2,12 @@ import re
 import pandas as pd
 import numpy as np
 
-import undetected_chromedriver as uc
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
-
-
 
 
 import nltk
@@ -24,16 +23,14 @@ from wordcloud import WordCloud
 import google.generativeai as genai
 
 
-
 # ✅ Initialize WebDriver
 def initialize_driver():
-    options = uc.ChromeOptions()
-    options.headless = True  # Headless mode for cloud
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-gpu')
     options.add_argument('--disable-dev-shm-usage')
-    driver = uc.Chrome(options=options)
-    return driver
+    return webdriver.Chrome(options=options)
 
 # ✅ Scrape product details
 def scrape_product_details(url):
