@@ -4,7 +4,6 @@ Welcome to the **Product Review Analyzer** repository! 🚀 This project is desi
 
 ---
 
-
 ### 🌟 **Features**
 1. **Extract Data**  
    Automatically fetch reviews from a given URL and export them as a clean CSV file.  🎯 
