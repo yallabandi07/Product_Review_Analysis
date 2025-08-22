@@ -6,6 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.os_manager import ChromeType
+
 from time import sleep
 
 
@@ -23,20 +25,18 @@ import google.generativeai as genai
 
 
 # ✅ Initialize WebDriver
+@st.cache_resource
 def initialize_driver():
     options = Options()
-    options.add_argument("--headless")  # Must for Streamlit Cloud
-    options.add_argument("--disable-gpu")  # Windows GPU workaround
-    options.add_argument("--no-sandbox")  # Bypass sandbox
-    options.add_argument("--disable-dev-shm-usage")  # Avoid memory issues
-    options.add_argument("--disable-extensions")
-    options.add_argument("--disable-infobars")
-    options.add_argument("--window-size=1920,1080")  # Simulate full screen
+    options.add_argument("--headless")  # Run Chrome in headless mode (no GUI)
+    options.add_argument("--no-sandbox")  # Required for running in containerized environments
+    options.add_argument("--disable-dev-shm-usage") # Overcomes limited /dev/shm size in some environments
 
-    service = Service(ChromeDriverManager().install())
+        # Use ChromeDriverManager to automatically handle ChromeDriver download and setup
+    service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
+        
     driver = webdriver.Chrome(service=service, options=options)
     return driver
-
 
 
 # ✅ Scrape product details
