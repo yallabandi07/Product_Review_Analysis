@@ -25,8 +25,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.os_manager import ChromeType
 
 # ✅ Initialize WebDriver
-@st.cache_resource
-def get_driver():
+def initialize_driver():
     options = Options()
     options.add_argument("--headless=new") # For newer headless mode
     options.add_argument("--no-sandbox")
