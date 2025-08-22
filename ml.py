@@ -2,7 +2,13 @@ import re
 import pandas as pd
 import numpy as np
 
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
+
 
 import nltk
 from textblob import TextBlob
@@ -16,106 +22,101 @@ from wordcloud import WordCloud
 
 import google.generativeai as genai
 
-from playwright.sync_api import sync_playwright
 
-# =======================
+# ✅ Initialize WebDriver
+def initialize_driver():
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--disable-dev-shm-usage')
+    return webdriver.Chrome(options=options)
+
 # ✅ Scrape product details
-# =======================
 def scrape_product_details(url):
+    driver = initialize_driver()
+    driver.get(url)
+    
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(url, timeout=60000)
-            sleep(2)  # allow page to load
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        product_name = driver.find_element(By.CSS_SELECTOR, 'a.VJA3rP').get_attribute("title")
+        product_price = driver.find_element(By.XPATH, "//div[contains(text(), '₹')]").text
+        image_element = driver.find_element(By.XPATH, "//img[contains(@src, 'rukminim')]")
+        image_url = image_element.get_attribute("src")
+    except:
+        product_name, product_price, image_url = "Not Found", "Not Found", "Not Found"
+    
+    driver.quit()
+    return product_name, product_price, image_url
 
-            # Adjust selectors based on the site
-            try:
-                product_name = page.query_selector('a.VJA3rP').get_attribute("title")
-            except:
-                product_name = "Not Found"
-
-            try:
-                product_price = page.query_selector("div:has-text('₹')").inner_text()
-            except:
-                product_price = "Not Found"
-
-            try:
-                image_url = page.query_selector("img[src*='rukminim']").get_attribute("src")
-            except:
-                image_url = "Not Found"
-
-            browser.close()
-            return product_name, product_price, image_url
-
-    except Exception as e:
-        print("Error in scrape_product_details:", e)
-        return "Not Found", "Not Found", "Not Found"
-
-# =======================
-# ✅ Scrape reviews
-# =======================
+# ✅ Scrape reviews from all categories (Most Helpful, Negative First, Positive First)
 def scrape_reviews(url, num_pages=10):
+    driver = initialize_driver()
+    
+    # Modify URL for reviews page
+    base_url = url.replace("/p/", "/product-reviews/")
+    base_url = re.sub(r"&sortOrder=.*", "", base_url)  # Remove any existing sorting parameters
+
+    # Sorting categories
+    categories = [
+        f"{base_url}&aid=overall&certifiedBuyer=false&sortOrder=MOST_HELPFUL",  # Most Helpful
+        f"{base_url}&aid=overall&certifiedBuyer=false&sortOrder=NEGATIVE_FIRST",  # Negative First
+        f"{base_url}&aid=overall&certifiedBuyer=false&sortOrder=POSITIVE_FIRST"   # Positive First
+    ]
+
     all_ratings, all_titles, all_comments = [], [], []
 
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
+    # Loop through each category and scrape reviews
+    for category_url in categories:
+        for i in range(1, num_pages + 1):
+            print(f"Scraping Page {i} of {category_url.split('&sortOrder=')[-1]}...")
 
-            # Modify URL for reviews page
-            base_url = url.replace("/p/", "/product-reviews/")
-            base_url = re.sub(r"&sortOrder=.*", "", base_url)
+            # Construct URL for each page
+            page_url = f"{category_url}&page={i}"
 
-            # Sorting categories
-            categories = [
-                f"{base_url}&aid=overall&certifiedBuyer=false&sortOrder=MOST_HELPFUL",
-                f"{base_url}&aid=overall&certifiedBuyer=false&sortOrder=NEGATIVE_FIRST",
-                f"{base_url}&aid=overall&certifiedBuyer=false&sortOrder=POSITIVE_FIRST"
-            ]
+            try:
+                driver.get(page_url)
+                sleep(2)  # Allow time for page load
 
-            for category_url in categories:
-                for i in range(1, num_pages + 1):
-                    print(f"Scraping Page {i} of {category_url.split('&sortOrder=')[-1]}...")
-                    page_url = f"{category_url}&page={i}"
-                    try:
-                        page.goto(page_url, timeout=60000)
-                        sleep(2)
+                # Wait for reviews to load
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.XQDdHH.Ga3i8K, div.cDye2S'))
+                )
 
-                        # Ratings
-                        ratings_elements = page.query_selector_all('div.XQDdHH.Ga3i8K, div.cDye2S')
-                        page_ratings = [r.inner_text() for r in ratings_elements]
+                # Extract Ratings
+                page_ratings = [ra.text for ra in driver.find_elements(By.CSS_SELECTOR, 'div.XQDdHH.Ga3i8K, div.cDye2S')]
 
-                        # Titles
-                        title_elements = page.query_selector_all('p.z9E0IG')
-                        page_titles = [t.inner_text() for t in title_elements]
+                # Extract Review Titles
+                page_titles = [re.text for re in driver.find_elements(By.CSS_SELECTOR, 'p.z9E0IG')]
 
-                        # Comments
-                        comment_elements = page.query_selector_all('div.ZmyHeo')
-                        page_comments = [c.inner_text() for c in comment_elements]
+                # Extract Review Comments
+                page_comments = [co.text for co in driver.find_elements(By.CSS_SELECTOR, 'div.ZmyHeo')]
 
-                        # Normalize lengths
-                        max_len = max(len(page_ratings), len(page_titles), len(page_comments))
-                        page_ratings += ["N/A"] * (max_len - len(page_ratings))
-                        page_titles += ["N/A"] * (max_len - len(page_titles))
-                        page_comments += ["N/A"] * (max_len - len(page_comments))
+                # Ensure all lists have the same length
+                min_len = min(len(page_ratings), len(page_titles), len(page_comments))
 
-                        all_ratings.extend(page_ratings)
-                        all_titles.extend(page_titles)
-                        all_comments.extend(page_comments)
+                print(f"✅ Found: {len(page_ratings)} Ratings, {len(page_titles)} Titles, {len(page_comments)} Comments")
 
-                        sleep(1)
+                # Normalize list sizes (fill missing values with "N/A")
+                max_length = max(len(page_ratings), len(page_titles), len(page_comments))
+                page_ratings += ["N/A"] * (max_length - len(page_ratings))
+                page_titles += ["N/A"] * (max_length - len(page_titles))
+                page_comments += ["N/A"] * (max_length - len(page_comments))
 
-                    except Exception as e:
-                        print(f"⚠️ Error scraping page {i}: {e}")
-                        continue
+                # Append to master lists
+                all_ratings.extend(page_ratings)
+                all_titles.extend(page_titles)
+                all_comments.extend(page_comments)
 
-            browser.close()
+                sleep(2)  # Prevent request blocking
 
-    except Exception as e:
-        print("Error initializing Playwright:", e)
+            except Exception as e:
+                print(f"⚠️ Error fetching page {i}: {e}")
+                continue  # Skip this page and move to the next one
 
-    # Create DataFrame
+    driver.quit()
+
+    # ✅ Ensure all lists are of equal length
     min_len = min(len(all_ratings), len(all_titles), len(all_comments))
     reviews_df = pd.DataFrame({
         "Rating": all_ratings[:min_len],
@@ -125,9 +126,8 @@ def scrape_reviews(url, num_pages=10):
 
     return reviews_df
 
-# =======================
+
 # ✅ Preprocessing function
-# =======================
 def preprocess_text(text):
     stop_words = set(stopwords.words('english'))
     lemmatizer = WordNetLemmatizer()
@@ -137,9 +137,7 @@ def preprocess_text(text):
     words = [lemmatizer.lemmatize(word) for word in words if word not in stop_words]
     return " ".join(words)
 
-# =======================
-# ✅ Sentiment functions
-# =======================
+# ✅ Sentiment classification
 def classify_sentiment(text):
     analysis = TextBlob(text)
     if analysis.sentiment.polarity > 0.2:
@@ -149,8 +147,10 @@ def classify_sentiment(text):
     else:
         return "Neutral"
 
+# ✅ Calculate sentiment rating
 def calculate_sentiment_score(text):
-    polarity = TextBlob(text).sentiment.polarity
+    blob = TextBlob(text)
+    polarity = blob.sentiment.polarity
     if polarity > 0.5:
         return 5
     elif polarity > 0.2:
@@ -162,9 +162,11 @@ def calculate_sentiment_score(text):
     else:
         return 1
 
+# ✅ Calculate overall sentiment rating
 def calculate_overall_rating(sentiment_ratings):
     return round(sentiment_ratings.mean(), 2)
 
+# ✅ Predict overall sentiment
 def predict_rating_category(rating):
     if rating >= 4:
         return "Good"
@@ -173,24 +175,25 @@ def predict_rating_category(rating):
     else:
         return "Bad"
 
-# =======================
-# ✅ Visualization
-# =======================
+# ✅ Generate bar graphs
 def generate_bar_chart(data, labels, title, xlabel, ylabel):
     fig, ax = plt.subplots()
     sns.barplot(x=labels, y=data, ax=ax, hue=labels, dodge=False, palette="viridis")
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+    
     img_buffer = BytesIO()
     plt.savefig(img_buffer, format='png')
     plt.close()
     img_buffer.seek(0)
     return img_buffer
 
+# ✅ Generate word cloud
 def generate_wordcloud_image(text):
     if not text.strip():
-        return None
+        return None  # Return None if there's no text to process
+    
     wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text)
     img_buffer = BytesIO()
     plt.figure(figsize=(10, 5))
@@ -201,9 +204,6 @@ def generate_wordcloud_image(text):
     img_buffer.seek(0)
     return img_buffer
 
-# =======================
-# ✅ AI summarization
-# =======================
 def summarize_reviews(reviews_df):
     genai.configure(api_key="AIzaSyBnaTFCYknijGaV9SaqiX1HdIrCWUXoFLM")
     all_reviews = "\n".join(reviews_df["Review"].dropna().tolist())
@@ -236,9 +236,7 @@ def summarize_reviews(reviews_df):
     response = model.generate_content(prompt)
     return response.text if response.text else "Summary not available."
 
-# =======================
-# ✅ Main processing function
-# =======================
+#Main Function Call
 def process_reviews(url):
     product_name, product_price, image_url = scrape_product_details(url)
     reviews_df = scrape_reviews(url)
@@ -268,21 +266,31 @@ def process_reviews(url):
     overall_rating = calculate_overall_rating(reviews_df["SentimentRating"])
     overall_sentiment = predict_rating_category(overall_rating)
     
+    # ✅ Generate word cloud images
     wordcloud_positive = generate_wordcloud_image(" ".join(reviews_df[reviews_df["Sentiment"] == "Positive"]["Full_Text"]))
     wordcloud_neutral = generate_wordcloud_image(" ".join(reviews_df[reviews_df["Sentiment"] == "Neutral"]["Full_Text"]))
     wordcloud_negative = generate_wordcloud_image(" ".join(reviews_df[reviews_df["Sentiment"] == "Negative"]["Full_Text"]))
     
+    # ✅ Generate sentiment and ratings distribution graphs
     sentiment_counts = reviews_df["Sentiment"].value_counts()
     sentiment_chart = generate_bar_chart(sentiment_counts.values, sentiment_counts.index, "Sentiment Distribution", "Sentiment", "Count")
     
     rating_counts = reviews_df["Rating"].value_counts().sort_index()
     rating_chart = generate_bar_chart(rating_counts.values, rating_counts.index, "Ratings Distribution", "Rating", "Count")
     
+    # ✅ Generate review summary
     summary = summarize_reviews(reviews_df)
 
-    top_positive = reviews_df[reviews_df["Sentiment"] == "Positive"].head(5)[["Title", "Review"]].to_dict(orient="records")
-    top_neutral = reviews_df[reviews_df["Sentiment"] == "Neutral"].head(5)[["Title", "Review"]].to_dict(orient="records")
-    top_negative = reviews_df[reviews_df["Sentiment"] == "Negative"].head(5)[["Title", "Review"]].to_dict(orient="records")
+    # ✅ Get Top 5 Reviews for Each Sentiment Category
+    top_positive = reviews_df[reviews_df["Sentiment"] == "Positive"].head(5)[["Title", "Review"]]
+    top_neutral = reviews_df[reviews_df["Sentiment"] == "Neutral"].head(5)[["Title", "Review"]]
+    top_negative = reviews_df[reviews_df["Sentiment"] == "Negative"].head(5)[["Title", "Review"]]
+
+    # Convert DataFrames to lists of dictionaries (for Streamlit display)
+    top_positive = top_positive.to_dict(orient="records")
+    top_neutral = top_neutral.to_dict(orient="records")
+    top_negative = top_negative.to_dict(orient="records")
+
     
     return {
         "image_url": image_url,
