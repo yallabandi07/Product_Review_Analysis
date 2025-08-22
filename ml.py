@@ -2,10 +2,7 @@ import re
 import pandas as pd
 import numpy as np
 
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -27,19 +24,15 @@ from wordcloud import WordCloud
 import google.generativeai as genai
 
 
+
 # ✅ Initialize WebDriver
 def initialize_driver():
-    options = Options()
-    options.add_argument("--headless")  # Run in headless mode (no GUI)
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    
-    # Automatically downloads the correct ChromeDriver version
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        options=options
-    )
+    options = uc.ChromeOptions()
+    options.headless = True  # Headless mode for cloud
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = uc.Chrome(options=options)
     return driver
 
 # ✅ Scrape product details
