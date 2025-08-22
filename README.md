@@ -3,9 +3,7 @@
 Welcome to the **Product Review Analyzer** repository! 🚀 This project is designed to streamline product analysis by extracting, classifying, summarizing, and rating reviews from popular e-commerce platforms like Amazon or Flipkart. 🛒✨ 
 
 ---
-🌐 **Live Demo:** [Click here to visit the website](https://app-prduct-review-analysis.streamlit.app/)
 
----
 
 ### 🌟 **Features**
 1. **Extract Data**  
