@@ -4,6 +4,8 @@ import numpy as np
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from time import sleep
 
 
@@ -23,11 +25,15 @@ import google.generativeai as genai
 # ✅ Initialize WebDriver
 def initialize_driver():
     options = Options()
-    options.add_argument("--headless")  # run in headless mode
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--headless")  # Run Chrome without GUI
+    options.add_argument("--no-sandbox")  # Required for cloud
+    options.add_argument("--disable-dev-shm-usage")  # Avoid memory issues
     options.add_argument("--disable-gpu")
-    return webdriver.Chrome(options=options)
+    options.add_argument("--window-size=1920,1080")  # Optional but recommended
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+    return driver
+
 
 # ✅ Scrape product details
 def scrape_product_details(url):
